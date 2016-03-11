@@ -5,9 +5,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.NavigationView;
-import android.support.design.widget.Snackbar;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
@@ -16,6 +14,7 @@ import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -32,7 +31,6 @@ import java.util.ArrayList;
 
 import butterknife.Bind;
 import butterknife.ButterKnife;
-import butterknife.OnItemClick;
 import okhttp3.Call;
 
 public class MainActivity extends AppCompatActivity
@@ -53,15 +51,6 @@ public class MainActivity extends AppCompatActivity
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
-            }
-        });
-
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
                 this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
@@ -71,6 +60,20 @@ public class MainActivity extends AppCompatActivity
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
 
+        google_adapter=new  Google_adapter(getApplicationContext(), 0, linkArrayList);
+        yaunban_lv.setAdapter(google_adapter);
+
+        yaunban_lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Toast.makeText(getApplicationContext(),""+position,Toast.LENGTH_SHORT).show();
+
+                Link link=google_adapter.getItem(position);
+                Intent browerIntent=new Intent(Intent.ACTION_VIEW, Uri.parse(link.getUrl()));
+                startActivity(browerIntent);
+                yaunban_lv.getChildAt(position-yaunban_lv.getFirstVisiblePosition()).setBackgroundColor(Color.GRAY);
+            }
+        });
         OkHttpUtils.get()
                 .url("http://www.itechzero.com/google-mirror-sites-collect.html")
                 .build()
@@ -84,7 +87,11 @@ public class MainActivity extends AppCompatActivity
                     public void onResponse(String response) {
                         Document doc = Jsoup.parse(response);
                         ele_main=doc.getElementsByClass("entry-content").last();
-                        parse_class(ele_main, "原版网页", yaunban_lv);
+                        try {
+                            parse_class(ele_main, "原版网页");
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
                     }
                 });
     }
@@ -129,18 +136,34 @@ public class MainActivity extends AppCompatActivity
 
         if (id == R.id.origin_version) {
             tv.setText("原版网页");
-            parse_class(ele_main, "原版网页", yaunban_lv);
+            try {
+                parse_class(ele_main, "原版网页");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         } else if (id == R.id.science) {
             tv.setText("谷歌学术");
-            parse_class(ele_main, "谷歌学术", yaunban_lv);
+            try {
+                parse_class(ele_main, "谷歌学术");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
 
         } else if (id == R.id.bianzhong) {
             tv.setText("变种网页");
-            parse_class(ele_main, "变种网页", yaunban_lv);
+            try {
+                parse_class(ele_main, "变种网页");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
 
         } else if (id == R.id.picture) {
             tv.setText("谷歌图片");
-            parse_class(ele_main, "谷歌图片", yaunban_lv);
+            try {
+                parse_class(ele_main, "谷歌图片");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
 
         }
 
@@ -149,7 +172,7 @@ public class MainActivity extends AppCompatActivity
         return true;
     }
 
-    private void parse_class(Element ele_main,String key,ListView lv) {
+    private void parse_class(Element ele_main,String key) throws InterruptedException {
         if(check_connection!=null){
             check_connection.cancel(true);
         }
@@ -165,28 +188,37 @@ public class MainActivity extends AppCompatActivity
             linkArrayList.add(new Link(i.text(),i.attr("href")));
         }
         Toast.makeText(getApplicationContext(), "" + elements.size(), Toast.LENGTH_SHORT).show();
-        google_adapter=new  Google_adapter(getApplicationContext(), 0, linkArrayList);
-        lv.setAdapter(google_adapter);
+
         google_adapter.notifyDataSetChanged();
 
+        while (linkArrayList.size()==0){
+            Thread.sleep(50);
+        }
         check_connection=new Check_connection();
         check_connection.execute();
     }
 
-    @OnItemClick(R.id.yuanban_listview) void onItemClick(int position) {
-        Link link= (Link) yaunban_lv.getItemAtPosition(position);
-        Intent browerIntent=new Intent(Intent.ACTION_VIEW, Uri.parse(link.getUrl()));
-        startActivity(browerIntent);
-        yaunban_lv.getChildAt(position).setBackgroundColor(Color.GRAY);
-    }
-
     class Check_connection extends AsyncTask<Void,Void,Void> {
-        ArrayList<Integer> accessable_url=new ArrayList<Integer>();
-        ArrayList<Integer> not_accessable_url=new ArrayList<Integer>();
+        ArrayList<Integer> accessable_url;
+        ArrayList<Integer> not_accessable_url;
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            accessable_url=new ArrayList<Integer>();
+            not_accessable_url=new ArrayList<Integer>();
+        }
 
         @Override
         protected void onPostExecute(Void aVoid) {
             super.onPostExecute(aVoid);
+            for(int i=0;i<3;i++){
+                View view=yaunban_lv.getChildAt(i);
+                view.setBackgroundColor(Color.BLUE);
+            }
+            Toast.makeText(getApplication(),"hello",Toast.LENGTH_SHORT).show();
+            /**
+             *
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
@@ -201,6 +233,7 @@ public class MainActivity extends AppCompatActivity
 
                     }
             });
+             */
         }
 
         @Override
